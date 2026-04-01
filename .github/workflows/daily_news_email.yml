@@ -1,8 +1,7 @@
-name: Daily US News Email
+name: Daily U.S. News Issue
 
 on:
   schedule:
-    # Run at both 00:00 and 01:00 UTC; script will only send when New York local time is 20:00.
     - cron: "0 0 * * *"
     - cron: "0 1 * * *"
   workflow_dispatch:
@@ -13,8 +12,12 @@ on:
         default: true
         type: boolean
 
+permissions:
+  contents: read
+  issues: write
+
 jobs:
-  send-news:
+  create-news-issue:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -28,18 +31,27 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Send digest email
+      - name: Generate digest
         env:
-          SMTP_HOST: ${{ secrets.SMTP_HOST }}
-          SMTP_PORT: ${{ secrets.SMTP_PORT }}
-          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
-          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-          MAIL_FROM: ${{ secrets.MAIL_FROM }}
-          MAIL_TO: ${{ secrets.MAIL_TO }}
           FORCE_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.force_run || false }}
         run: |
           if [ "$FORCE_RUN" = "true" ]; then
-            python scripts/daily_news_digest.py --limit-per-source 3 --force-run
+            python scripts/daily_news_digest.py --limit-per-source 3 --force-run --title-output issue_title.txt --body-output issue_body.md
           else
-            python scripts/daily_news_digest.py --limit-per-source 3 --only-at-hour 20
+            python scripts/daily_news_digest.py --limit-per-source 3 --only-at-hour 20 --title-output issue_title.txt --body-output issue_body.md
           fi
+
+      - name: Create issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("fs");
+            const title = fs.readFileSync("issue_title.txt", "utf8").trim();
+            const body = fs.readFileSync("issue_body.md", "utf8");
+            const response = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body
+            });
+            core.info(`Created issue #${response.data.number}: ${response.data.html_url}`);
