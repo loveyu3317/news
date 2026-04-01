@@ -145,12 +145,13 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Send daily bilingual US news digest")
     parser.add_argument("--limit-per-source", type=int, default=3)
     parser.add_argument("--only-at-hour", type=int, default=None, help="Only send when America/New_York hour matches")
+    parser.add_argument("--force-run", action="store_true", help="Ignore the local-hour guard and send immediately")
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    if args.only_at_hour is not None:
+    if args.only_at_hour is not None and not args.force_run:
         ny_hour = dt.datetime.now(ZoneInfo("America/New_York")).hour
         if ny_hour != args.only_at_hour:
             print(f"Skip run because New York hour is {ny_hour}, expected {args.only_at_hour}.")

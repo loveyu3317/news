@@ -6,6 +6,12 @@ on:
     - cron: "0 0 * * *"
     - cron: "0 1 * * *"
   workflow_dispatch:
+    inputs:
+      force_run:
+        description: "Run immediately and ignore the 8 PM New York hour check"
+        required: false
+        default: true
+        type: boolean
 
 jobs:
   send-news:
@@ -30,4 +36,10 @@ jobs:
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           MAIL_FROM: ${{ secrets.MAIL_FROM }}
           MAIL_TO: ${{ secrets.MAIL_TO }}
-        run: python scripts/daily_news_digest.py --limit-per-source 3 --only-at-hour 20
+          FORCE_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.force_run || false }}
+        run: |
+          if [ "$FORCE_RUN" = "true" ]; then
+            python scripts/daily_news_digest.py --limit-per-source 3 --force-run
+          else
+            python scripts/daily_news_digest.py --limit-per-source 3 --only-at-hour 20
+          fi
