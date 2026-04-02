@@ -32,6 +32,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Generate digest
+        id: generate
         env:
           FORCE_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.force_run || false }}
         run: |
@@ -40,8 +41,14 @@ jobs:
           else
             python scripts/daily_news_digest.py --limit-per-source 3 --only-at-hour 20 --title-output issue_title.txt --body-output issue_body.md
           fi
+          if [ -f issue_title.txt ]; then
+            echo "created=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "created=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Create issue
+        if: steps.generate.outputs.created == 'true'
         uses: actions/github-script@v7
         with:
           script: |
